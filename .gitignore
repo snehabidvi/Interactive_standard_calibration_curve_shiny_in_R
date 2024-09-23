@@ -1,49 +1,231 @@
-# History files
-.Rhistory
-.Rapp.history
+# Installing required libraries if not already installed -
 
-# Session Data files
-.RData
-.RDataTmp
+install.packages(c("shiny", "dplyr", "tidyr", "ggplot2", "plotly", "htmlwidgets"))
 
-# User-specific files
-.Ruserdata
 
-# Example code in package build process
-*-Ex.R
+# Loading necessary libraries
+library(shiny)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(plotly)
+library(htmlwidgets)
 
-# Output files from R CMD build
-/*.tar.gz
 
-# Output files from R CMD check
-/*.Rcheck/
+# Defining UI for the application
 
-# RStudio files
-.Rproj.user/
+ui <- fluidPage(
+  titlePanel("Interactive Standard Calibration Curve"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      # Input for concentration and absorbance values
+      textInput("conc_values", "Enter Concentration Values (comma-separated):", 
+                value = paste(c(0, 200, 400, 600, 800, 1000), collapse = ",")),
+      textAreaInput("abs_values", "Enter Absorbance Values (comma-separated, 3 per concentration):", 
+                    value = "0, 0, 0\n0.098,0.145, 0.211\n0.201, 0.356, 0.340\n0.570, 0.558, 0.593\n0.612, 0.615, 0.643\n0.671, 0.774, 0.702",
+                    rows = 5),
+      
+      # Input box for multiple unknown absorbance values
+      textInput("unknown_abs", "Enter Unknown Absorbances (comma-separated):", 
+                value = "0.3"),
+      
+      # Input fields for custom labels and titles
+      textInput("x_label", "Enter X-axis Label:", value = "Concentration in mcg/ml"),
+      textInput("y_label", "Enter Y-axis Label:", value = "Absorbance at 540 nm"),
+      textInput("plot_title", "Enter Plot Title:", value = "Standard Calibration Curve"),
+      
+      # Checkbox to allow download with or without predicted points
+      checkboxInput("include_pred", "Include Unknown Predicted Points in Download", value = TRUE),
+      
+      # Select download format
+      selectInput("file_format", "Select download format:", 
+                  choices = c("HTML", "PNG", "JPEG", "PDF"), selected = "HTML"),
+      
+      # Add download button
+      downloadButton("downloadPlot", "Download Plot")
+    ),
+    
+    mainPanel(
+      plotlyOutput("interactivePlot")  # Interactive plot output
+    )
+  )
+)
 
-# produced vignettes
-vignettes/*.html
-vignettes/*.pdf
 
-# OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
-.httr-oauth
 
-# knitr and R markdown default cache directories
-*_cache/
-/cache/
+# Defining server logic for the interactive plot
 
-# Temporary files created by R markdown
-*.utf8.md
-*.knit.md
+server <- function(input, output) {
+  
+  # Reactive expression to generate data frame from user inputs
+  reactive_df <- reactive({
+    # Split the input values for concentration
+    conc_values <- as.numeric(unlist(strsplit(input$conc_values, ",")))
+    
+    # Split the absorbance values by newline, then split by commas for each concentration
+    abs_values_raw <- strsplit(input$abs_values, "\n")[[1]]
+    abs_values <- lapply(abs_values_raw, function(x) as.numeric(unlist(strsplit(x, ","))))
+    
+    # Calculate mean and standard deviation for each concentration
+    mean_abs <- sapply(abs_values, mean)
+    sd_abs <- sapply(abs_values, sd)
+    
+    # Create a data frame
+    data.frame(conc = conc_values, mean_abs = mean_abs, sd_abs = sd_abs)
+  })
+  
+  # Reactive expression to fit the linear model
+  reactive_mod <- reactive({
+    df <- reactive_df()
+    lm(mean_abs ~ conc - 1, data = df)  # Fit model without intercept
+  })
+  
+  # Render the interactive plot
+  output$interactivePlot <- renderPlotly({
+    
+    # Get the user-inputted data
+    df <- reactive_df()
+    
+    # Fit a linear model with no intercept based on user input
+    mod <- reactive_mod()
+    
+    # Extract model coefficients, R-squared, and p-value
+    slope <- coef(mod)[1]
+    r_squared <- summary(mod)$r.squared
+    p_value <- summary(mod)$coefficients[1, 4]
+    
+    # Construct the annotation text
+    annotation_text <- paste0("Absorbance = ", round(slope, 4), "*conc, R-squared = ", 
+                              round(r_squared, 2), ", p-value = ", 
+                              ifelse(p_value < 0.001, "< 0.001", round(p_value, 3)))
+    
+    # Split and convert unknown absorbance values to a numeric vector
+    unknown_abs_values <- as.numeric(unlist(strsplit(input$unknown_abs, ",")))
+    
+    # Create a data frame for unknown absorbance values
+    mod1 <- lm(conc ~ mean_abs - 1, data = df)
+    uk <- data.frame(mean_abs = unknown_abs_values)
+    uk$pred <- predict(mod1, newdata = uk)  # Predict concentration for unknown
+    
+    # Create the base plot with custom labels and titles
+    p <- ggplot(df, aes(x = conc, y = mean_abs)) +
+      geom_point(size = 2) +
+      geom_errorbar(aes(ymin = mean_abs - sd_abs, ymax = mean_abs + sd_abs), width = 50) +
+      
+      # Manually define the regression line to ensure it starts from the origin
+      geom_abline(intercept = 0, slope = slope, col = "blue") +
+      
+      labs(title = input$plot_title,    # Use user-defined plot title
+           x = input$x_label,           # Use user-defined x-axis label
+           y = input$y_label) +         # Use user-defined y-axis label
+      
+      theme_classic() +
+      
+      # Add annotation text for the regression formula and R-squared value
+      annotate(geom = "text", x = median(df$conc), y = max(df$mean_abs) * 1.17, 
+               label = annotation_text, color = "blue") +
+      
+      # Force the axes to start exactly from (0,0) by removing any axis expansion
+      scale_x_continuous(expand = c(0, 0), limits = c(0, max(df$conc) + 50)) +
+      scale_y_continuous(expand = c(0, 0), limits = c(0, max(df$mean_abs + df$sd_abs + 0.1))) +
+      
+      # Adjust margin to ensure the plot is not clipped
+      coord_cartesian(xlim = c(0, max(df$conc) + 50), ylim = c(0, max(df$mean_abs + df$sd_abs + 0.1))) 
+    
+    
+    # Add predicted points if checkbox is selected
+    if (input$include_pred) {
+      p <- p +
+        geom_point(data = uk, aes(x = pred, y = mean_abs), col = "red", size = 3) +
+        geom_text(data = uk, aes(x = pred, y = mean_abs, label = paste0("Predicted conc: ", round(pred, 2))), 
+                  nudge_x = -50, nudge_y = 0.1, color = "red")  # Nudge label position
+    }
+    
+    # Convert ggplot to plotly for interactivity
+    ggplotly(p) %>%
+      layout(hovermode = "closest")
+  })
+  
+  # Download handler for saving the plot in different formats
+  output$downloadPlot <- downloadHandler(
+    filename = function() {
+      paste("interactive_plot_", Sys.Date(), ".", tolower(input$file_format), sep = "")
+    },
+    content = function(file) {
+      # Create the plot for download
+      df <- reactive_df()
+      
+      # Fit a linear model with no intercept based on user input
+      mod <- reactive_mod()
+      
+      # Extract model coefficients, R-squared, and p-value
+      slope <- coef(mod)[1]
+      r_squared <- summary(mod)$r.squared
+      p_value <- summary(mod)$coefficients[1, 4]
+      
+      # Construct the annotation text
+      annotation_text <- paste0("OD = ", round(slope, 4), "*conc, R-squared = ", 
+                                round(r_squared, 2), ", p-value = ", 
+                                ifelse(p_value < 0.001, "< 0.001", round(p_value, 3)))
+      
+      # Split and convert unknown absorbance values to a numeric vector
+      unknown_abs_values <- as.numeric(unlist(strsplit(input$unknown_abs, ",")))
+      
+      # Create a data frame for unknown absorbance values
+      mod1 <- lm(conc ~ mean_abs - 1, data = df)
+      uk <- data.frame(mean_abs = unknown_abs_values)
+      uk$pred <- predict(mod1, newdata = uk)  # Predict concentration for unknown
+      
+      # Create the base plot for saving
+      p <- ggplot(df, aes(x = conc, y = mean_abs)) +
+        geom_point(size = 2) +
+        geom_errorbar(aes(ymin = mean_abs - sd_abs, ymax = mean_abs + sd_abs), width = 50) +
+        
+        # Manually define the regression line to ensure it starts from the origin
+        geom_abline(intercept = 0, slope = slope, col = "blue") +
+        
+        labs(title = input$plot_title,    # Use user-defined plot title
+             x = input$x_label,           # Use user-defined x-axis label
+             y = input$y_label) +         # Use user-defined y-axis label
+        
+        theme_classic() +
+        
+        # Add annotation text for the regression formula and R-squared value
+        annotate(geom = "text", x = median(df$conc), y = max(df$mean_abs) * 1.17, 
+                 label = annotation_text, color = "blue") +
+        
+        # Force the axes to start exactly from (0,0) by removing any axis expansion
+        scale_x_continuous(expand = c(0, 0), limits = c(0, max(df$conc) + 50)) +
+        scale_y_continuous(expand = c(0, 0), limits = c(0, max(df$mean_abs + df$sd_abs + 0.1))) +
+        
+        # Adjust margin to ensure the plot is not clipped
+        coord_cartesian(xlim = c(0, max(df$conc) + 50), ylim = c(0, max(df$mean_abs + df$sd_abs + 0.1))) 
+      
+      
+      # Add predicted points if checkbox is selected
+      if (input$include_pred) {
+        p <- p +
+          geom_point(data = uk, aes(x = pred, y = mean_abs), col = "red", size = 3) +
+          geom_text(data = uk, aes(x = pred, y = mean_abs, label = paste0("Predicted conc: ", round(pred, 2))), 
+                    nudge_x = -50, nudge_y = 0.1, color = "red")  # Nudge label position
+      }
+      
+      # Save the plot based on selected file format
+      if (input$file_format == "HTML") {
+        # Convert ggplot to plotly for saving as HTML
+        interactive_plot <- ggplotly(p) %>%
+          layout(hovermode = "closest")
+        saveWidget(interactive_plot, file)
+      } else {
+        # Save as PNG, JPEG, or PDF using ggsave()
+        ggsave(file, plot = p, device = tolower(input$file_format), width = 8, height = 6)
+      }
+    }
+  )
+}
 
-# R Environment Variables
-.Renviron
 
-# pkgdown site
-docs/
 
-# translation temp files
-po/*~
-
-# RStudio Connect folder
-rsconnect/
+# Running the application 
+shinyApp(ui = ui, server = server)
