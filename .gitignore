@@ -1,4 +1,4 @@
-# This R script is for plotting interactive standard callibration curve and predict unknown analyte concentration by linear regression model fitting.
+# This R script is for plotting interactive standard calibration curve and predict unknown analyte concentration by linear regression model fitting.
 
 # Installing required libraries if not already installed -
 
