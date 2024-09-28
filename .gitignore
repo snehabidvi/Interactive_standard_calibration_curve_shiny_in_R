@@ -1,3 +1,5 @@
+# This R script is for plotting interactive standard callibration curve and predict unknown analyte concentration by linear regression model fitting.
+
 # Installing required libraries if not already installed -
 
 install.packages(c("shiny", "dplyr", "tidyr", "ggplot2", "plotly", "htmlwidgets"))
