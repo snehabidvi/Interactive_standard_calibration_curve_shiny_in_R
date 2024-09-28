@@ -6,6 +6,8 @@ This is an interactive Shiny app dashboard for a standard calibration curve and 
 
 A calibration curve, also called as a standard curve, is a general method of determining the concentration of a substance in an unknown sample by comparing the unknown to a set of standard samples of known concentration. The data - the concentrations of the analyte and the instrument response for each standard concentration - can be fit to a straight line, with the use of linear regression analysis.
 
+In linear regression, the relationships between the variables are modeled using linear predictor functions wherein unknown model parameters are estimated from the data. A linear predictor function is a linear function (linear combination) of a set of coefficients and explanatory variables or independent variables, which are used to predict the dependent variable, these coefficients are called regression coefficients which also occur in various types of linear classifiers such as logistic regression, perceptrons, support vector machines and linear discriminant analysis, as well as in other models, like principal component analysis and factor analysis. In many of these models, the coefficients are also called as "weights". Such models are known as linear models.
+
 This R script is to plot standard callibration curve (not interactive).
 
 ## Loading necessary libraries
