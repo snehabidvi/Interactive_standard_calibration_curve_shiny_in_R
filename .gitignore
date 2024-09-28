@@ -13,9 +13,7 @@ library(ggplot2)
 library(plotly)
 library(htmlwidgets)
 
-
 # Defining UI for the application
-
 ui <- fluidPage(
   titlePanel("Interactive Standard Calibration Curve"),
   
@@ -54,10 +52,7 @@ ui <- fluidPage(
   )
 )
 
-
-
 # Defining server logic for the interactive plot
-
 server <- function(input, output) {
   
   # Reactive expression to generate data frame from user inputs
@@ -94,13 +89,16 @@ server <- function(input, output) {
     
     # Extract model coefficients, R-squared, and p-value
     slope <- coef(mod)[1]
-    r_squared <- summary(mod)$r.squared
-    p_value <- summary(mod)$coefficients[1, 4]
+    r_squared <- summary(mod)$r.squared   # Extract R-squared value
+    p_value <- summary(mod)$coefficients[1, 4]  # Extract p-value
     
-    # Construct the annotation text
-    annotation_text <- paste0("Absorbance = ", round(slope, 4), "*conc, R-squared = ", 
-                              round(r_squared, 2), ", p-value = ", 
-                              ifelse(p_value < 0.001, "< 0.001", round(p_value, 3)))
+    # Use format() to display numbers in fixed-point notation
+    slope_text <- format(slope, scientific = FALSE, digits = 6)
+    p_value_text <- format(p_value, scientific = FALSE, digits = 6)  # No scientific notation
+    
+    # Construct the title with both the main title and subtitle content
+    title_text <- paste0(input$plot_title, "\nAbsorbance = ", slope_text, "*conc, R-squared = ", 
+                         round(r_squared, 2), ", p-value = ", p_value_text)
     
     # Split and convert unknown absorbance values to a numeric vector
     unknown_abs_values <- as.numeric(unlist(strsplit(input$unknown_abs, ",")))
@@ -116,17 +114,13 @@ server <- function(input, output) {
       geom_errorbar(aes(ymin = mean_abs - sd_abs, ymax = mean_abs + sd_abs), width = 50) +
       
       # Manually define the regression line to ensure it starts from the origin
-      geom_abline(intercept = 0, slope = slope, col = "blue") +
+      geom_abline(intercept = 0, slope = slope, col = "black") +
       
-      labs(title = input$plot_title,    # Use user-defined plot title
-           x = input$x_label,           # Use user-defined x-axis label
-           y = input$y_label) +         # Use user-defined y-axis label
+      labs(title = title_text,       # Use combined title and equation
+           x = input$x_label,        # Use user-defined x-axis label
+           y = input$y_label) +      # Use user-defined y-axis label
       
       theme_classic() +
-      
-      # Add annotation text for the regression formula and R-squared value
-      annotate(geom = "text", x = median(df$conc), y = max(df$mean_abs) * 1.17, 
-               label = annotation_text, color = "blue") +
       
       # Force the axes to start exactly from (0,0) by removing any axis expansion
       scale_x_continuous(expand = c(0, 0), limits = c(0, max(df$conc) + 50)) +
@@ -135,18 +129,23 @@ server <- function(input, output) {
       # Adjust margin to ensure the plot is not clipped
       coord_cartesian(xlim = c(0, max(df$conc) + 50), ylim = c(0, max(df$mean_abs + df$sd_abs + 0.1))) 
     
-    
     # Add predicted points if checkbox is selected
     if (input$include_pred) {
       p <- p +
-        geom_point(data = uk, aes(x = pred, y = mean_abs), col = "red", size = 3) +
+        geom_point(data = uk, aes(x = pred, y = mean_abs), col = "blue", size = 3) +
         geom_text(data = uk, aes(x = pred, y = mean_abs, label = paste0("Predicted conc: ", round(pred, 2))), 
-                  nudge_x = -50, nudge_y = 0.1, color = "red")  # Nudge label position
+                  nudge_x = -50, nudge_y = 0.1, color = "blue")  # Nudge label position
     }
     
     # Convert ggplot to plotly for interactivity
     ggplotly(p) %>%
-      layout(hovermode = "closest")
+      layout(
+        title = list(
+          text = title_text,
+          font = list(size = 13)  # Change font size here
+        ),
+        hovermode = "closest"
+      )
   })
   
   # Download handler for saving the plot in different formats
@@ -165,11 +164,11 @@ server <- function(input, output) {
       slope <- coef(mod)[1]
       r_squared <- summary(mod)$r.squared
       p_value <- summary(mod)$coefficients[1, 4]
+      p_value_text <- format(p_value, scientific = FALSE, digits = 6)  # No scientific notation
       
-      # Construct the annotation text
-      annotation_text <- paste0("OD = ", round(slope, 4), "*conc, R-squared = ", 
-                                round(r_squared, 2), ", p-value = ", 
-                                ifelse(p_value < 0.001, "< 0.001", round(p_value, 3)))
+      # Construct the title with both the main title and subtitle content
+      title_text <- paste0(input$plot_title, "\nAbsorbance = ", format(slope, scientific = FALSE, digits = 6), 
+                           "*conc, R-squared = ", round(r_squared, 2), ", p-value = ", p_value_text)
       
       # Split and convert unknown absorbance values to a numeric vector
       unknown_abs_values <- as.numeric(unlist(strsplit(input$unknown_abs, ",")))
@@ -185,39 +184,37 @@ server <- function(input, output) {
         geom_errorbar(aes(ymin = mean_abs - sd_abs, ymax = mean_abs + sd_abs), width = 50) +
         
         # Manually define the regression line to ensure it starts from the origin
-        geom_abline(intercept = 0, slope = slope, col = "blue") +
+        geom_abline(intercept = 0, slope = slope, col = "black") +
         
-        labs(title = input$plot_title,    # Use user-defined plot title
-             x = input$x_label,           # Use user-defined x-axis label
-             y = input$y_label) +         # Use user-defined y-axis label
+        labs(title = title_text,    # Use combined title and equation
+             x = input$x_label,     # Use user-defined x-axis label
+             y = input$y_label) +   # Use user-defined y-axis label
         
         theme_classic() +
         
-        # Add annotation text for the regression formula and R-squared value
-        annotate(geom = "text", x = median(df$conc), y = max(df$mean_abs) * 1.17, 
-                 label = annotation_text, color = "blue") +
-        
         # Force the axes to start exactly from (0,0) by removing any axis expansion
         scale_x_continuous(expand = c(0, 0), limits = c(0, max(df$conc) + 50)) +
-        scale_y_continuous(expand = c(0, 0), limits = c(0, max(df$mean_abs + df$sd_abs + 0.1))) +
-        
-        # Adjust margin to ensure the plot is not clipped
-        coord_cartesian(xlim = c(0, max(df$conc) + 50), ylim = c(0, max(df$mean_abs + df$sd_abs + 0.1))) 
-      
+        scale_y_continuous(expand = c(0, 0), limits = c(0, max(df$mean_abs + df$sd_abs + 0.1))) 
       
       # Add predicted points if checkbox is selected
       if (input$include_pred) {
         p <- p +
-          geom_point(data = uk, aes(x = pred, y = mean_abs), col = "red", size = 3) +
+          geom_point(data = uk, aes(x = pred, y = mean_abs), col = "blue", size = 3) +
           geom_text(data = uk, aes(x = pred, y = mean_abs, label = paste0("Predicted conc: ", round(pred, 2))), 
-                    nudge_x = -50, nudge_y = 0.1, color = "red")  # Nudge label position
+                    nudge_x = -50, nudge_y = 0.1, color = "blue")  # Nudge label position
       }
       
       # Save the plot based on selected file format
       if (input$file_format == "HTML") {
         # Convert ggplot to plotly for saving as HTML
         interactive_plot <- ggplotly(p) %>%
-          layout(hovermode = "closest")
+          layout(
+            title = list(
+              text = title_text,
+              font = list(size = 13)  # Change font size for title in downloaded file
+            ),
+            hovermode = "closest"
+          )
         saveWidget(interactive_plot, file)
       } else {
         # Save as PNG, JPEG, or PDF using ggsave()
@@ -226,8 +223,6 @@ server <- function(input, output) {
     }
   )
 }
-
-
 
 # Running the application 
 shinyApp(ui = ui, server = server)
