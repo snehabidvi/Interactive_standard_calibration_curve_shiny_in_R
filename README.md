@@ -1,14 +1,14 @@
 ## Interactive shiny app dashboard of standard calibration curve
 
-This (https://snehabidvi.shinyapps.io/Interactive_standard_callibration_curve_shiny_in_R/) is an interactive Shiny app dashboard for a standard calibration curve and prediction of data points fromm fitted linear model provides a versatile and powerful platform for construction and analysis of calibration curves, with several advanced features that enhance both usability and accuracy. This dashboard allows users to define the concentration range of the analyte under study, facilitating customization for different colorimetric assays with particular concentration detection range. Users can input absorbance values either as single measurements or in triplicates where the three absorbance values are separated by comma, with the app automatically calculating the mean and standard deviations to display error bars for the triplicate readings, also the R squared value, p value and line equation is displayed on the plot to reflect measurement variability and enhance the scientific rigor of the output. 
+This (https://snehabidvi.shinyapps.io/Interactive_standard_calibration_curve_shiny_in_R/) is an interactive Shiny app dashboard for a standard calibration curve and prediction of data points fromm fitted linear model provides a versatile and powerful platform for construction and analysis of calibration curves, with several advanced features that enhance both usability and accuracy. This dashboard allows users to define the concentration range of the analyte under study, facilitating customization for different colorimetric assays with particular concentration detection range. Users can input absorbance values either as single measurements or in triplicates where the three absorbance values are separated by comma, with the app automatically calculating the mean and standard deviations to display error bars for the triplicate readings, also the R squared value, p value and line equation is displayed on the plot to reflect measurement variability and enhance the scientific rigor of the output. 
 
-## Standard callibration curve
+## Standard calibration curve
 
 A calibration curve, also called as a standard curve, is a general method of determining the concentration of a substance in an unknown sample by comparing the unknown to a set of standard samples of known concentration. The data - the concentrations of the analyte and the instrument response for each standard concentration - can be fit to a straight line, with the use of linear regression analysis.
 
 In linear regression, the relationships between the variables are modeled using linear predictor functions wherein unknown model parameters are estimated from the data. A linear predictor function is a linear function (linear combination) of a set of coefficients and explanatory variables or independent variables, which are used to predict the dependent variable, these coefficients are called regression coefficients which also occur in various types of linear classifiers such as logistic regression, perceptrons, support vector machines and linear discriminant analysis, as well as in other models, like principal component analysis and factor analysis. In many of these models, the coefficients are also called as "weights". Such models are known as linear models.
 
-This R script is to plot standard callibration curve (not interactive).
+This R script is to plot standard calibration curve (not interactive).
 
 ## Loading necessary libraries
 
@@ -131,7 +131,7 @@ Arguments -
     A data frame, to add multiple columns from a single expression
     
 
-## Plotting standard callibration curve
+## Plotting standard calibration curve
 
 ggplot() function initializes a ggplot object. It can be used to declare the input data frame for a graphic and to specify the set of plot aesthetics intended to be common throughout all subsequent layers unless specifically overridden.
 
@@ -141,7 +141,7 @@ p <- ggplot(df1,aes(conc,mean_abs))+
   geom_errorbar(aes(ymin=mean_abs - sd_abs,ymax = mean_abs + sd_abs),width=0.2)+
   geom_smooth(method = "lm",se=0,formula = y~x - 1)+
   labs(title = "Reducing sugar estimation by DNSA method",
-       subtitle = "Standard callibration curve",x="Concentration in mcg/ml",y="Absorbance #at 540 nm")+
+       subtitle = "Standard calibration curve",x="Concentration in mcg/ml",y="Absorbance #at 540 nm")+
   annotate(geom = "text",x=360,y=0.75,label="Absorbance = 0.0007*conc, R-squared = 0.98,p-value <0.05")+
   theme_classic()
 
